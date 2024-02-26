@@ -1056,6 +1056,10 @@ with tab3:
 with tab4:
     st.subheader("FAQs")
 
+    st.markdown("- **What does Paavan Vayu means?**")
+    st.markdown("Paavan is a Sanskrit word that can be translated to mean pure, sacred, clean, or holy. Vayu is also a "
+                "Sanskrit word that translates to wind or air. The word Paavan Vayu means clean air.")
+
     st.markdown("- **From where does the Paavan Vayu app obtain its data?**")
     st.markdown("The Paavan Vayu app sources its air quality data from the World Air Quality Index (WAQI) platform. "
                 "This global platform aggregates real-time air quality information from monitoring stations worldwide. "
@@ -1082,6 +1086,15 @@ with tab4:
     st.markdown("The app offers real-time updates, ensuring users have access to the most current air quality "
                 "information. This allows users to stay informed about the immediate atmospheric conditions in their "
                 "chosen locations.")
+
+    st.markdown("- **How accurate is the air quality prediction model used in Paavan Vayu?**")
+    st.markdown("The air quality prediction model employed in Paavan Vayu demonstrates an accuracy rate of "
+                "approximately 90%. While this accuracy is high and reliable for most scenarios, it's essential to "
+                "acknowledge that, like any statistical model, there's a 10% margin for error. Factors such as "
+                "unexpected changes in weather patterns or localized influences may contribute to variations in "
+                "predictions. Users are encouraged to interpret the results with awareness of this margin and consider"
+                " them as valuable insights rather than absolute certainties. Regular updates and improvements to the "
+                "model are made to enhance its overall performance.")
 
 
     st.markdown("- **Does the Paavan Vayu app contain historical data?**")
