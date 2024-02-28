@@ -16,3 +16,4 @@ streamlit==1.31.1
 streamlit_supabase_auth==1.0.2
 supabase==2.4.0
 pip==24.0
+
