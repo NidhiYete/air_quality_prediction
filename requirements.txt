@@ -14,5 +14,5 @@ seaborn==0.13.2
 st_supabase_connection==1.2.2
 streamlit==1.31.1
 streamlit_supabase_auth==1.0.2
-supabase==2.3.6
+supabase==2.4.0
 pip==24.0
