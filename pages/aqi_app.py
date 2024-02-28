@@ -9,6 +9,11 @@ import json
 import csv
 from sklearn.compose import make_column_transformer
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import StackingClassifier
 from imblearn.pipeline import make_pipeline
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.preprocessing import PowerTransformer, MinMaxScaler
@@ -18,12 +23,6 @@ from scipy.stats.mstats import winsorize
 from streamlit_supabase_auth import logout_button
 import pygwalker as pyg
 import streamlit.components.v1 as components
-from PIL import Image
-from sklearn.metrics import ConfusionMatrixDisplay
-import seaborn as sns
-import matplotlib.pyplot as plt
-import aqi
-import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
 pio.templates.default = "plotly_white"
@@ -90,7 +89,7 @@ with col22:
 
 
 
-
+# get api key
 
 load_dotenv()
 api_key = os.getenv("API_KEY")
@@ -102,6 +101,8 @@ air_quality = pd.read_csv('data_2/air_data.csv')
 
 # Make container
 select_features = st.container()
+
+# Code or model training
 
 # 'coordinates' column contains strings like "[latitude, longitude]"
 air_quality['coordinates'] = air_quality['coordinates'].apply(ast.literal_eval)
@@ -224,22 +225,46 @@ y = air_new['AQI_Category']
 # Split the data into training and testing sets (e.g., 80% training, 20% testing)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
 
-# rf model
-
-# Use 'balanced' class weights in the classifier
-rf_model = RandomForestClassifier()
-
-# Train the classifier on the training set
-rf_model.fit(X_train, y_train)
-
-# Random Oversampling
-rf_pipeline = make_pipeline(SMOTE(), rf_model)
-
-# Step 3: Train your model using the training set with oversampling or undersampling
-rf_pipeline.fit(X_train, y_train)
 
 
+# Function to train Stacking Classifier ensemble and return the trained model object.
+@st.cache_resource
+def train_stacking_classifier(X_train, y_train):
+    # Create base classifiers
+    rf_model = RandomForestClassifier()
+    svm_model = SVC(class_weight='balanced', probability=True)
+    nb_model = GaussianNB()
+    knn_model = KNeighborsClassifier(n_neighbors=6)
+    mlp_model = MLPClassifier(hidden_layer_sizes=(100,), max_iter=1000, random_state=123)
 
+    # Create pipelines with Random Oversampling
+    rf_pipeline = make_pipeline(SMOTE(), rf_model)
+    svm_pipeline = make_pipeline(SMOTE(), svm_model)
+    nb_pipeline = make_pipeline(SMOTE(), nb_model)
+    knn_pipeline = make_pipeline(SMOTE(), knn_model)
+    mlp_pipeline = make_pipeline(SMOTE(), mlp_model)
+
+    # Create a stacking classifier with base and meta classifiers
+    model_st = StackingClassifier(
+        estimators=[
+            ('rf', rf_pipeline),
+            ('svm', svm_pipeline),
+            ('nb', nb_pipeline),
+            ('knn', knn_pipeline),
+            ('mlp', mlp_pipeline)
+        ],
+        final_estimator=RandomForestClassifier()
+    )
+
+    # Train the classifier on the training set
+    model_st.fit(X_train, y_train)
+
+    return model_st
+
+# Outside the function, call the function to get the trained model
+trained_stacking_classifier = train_stacking_classifier(X_train, y_train)
+
+# real time data extraction
 def extract_data(json_response):
     # Load the JSON response
     response_dict = json.loads(json_response)
@@ -264,7 +289,7 @@ def extract_data(json_response):
         "city": city_geo_location
 
     }
-
+# creating path to store data
 def create_csv_file(data, file_path):
     # Append data to CSV file
     with open(file_path, mode='a', newline='') as csv_file:
@@ -276,7 +301,6 @@ def create_csv_file(data, file_path):
             csv_writer.writeheader()
 
         csv_writer.writerow(data)
-
 
 
 
@@ -312,13 +336,11 @@ def air_quality_widget(aqi_value):
     # Display the gauge chart
     st.plotly_chart(fig)
 
-# title
-#st.title(':blue[Air Quality Index Prediction]')
-
+# Dashboard creation
 # Create tabs for different reports
 tab1, tab2, tab3, tab4, tab13 = st.tabs(["Paavan Vayu", "Visualization", "Help", "FAQ", "Submit Feedback"])
-#st.subheader('Ensemble Model and Evaluation')
 
+# create columns
 with tab1:
     col1, col2, col3, = st.columns(3)
 
@@ -332,6 +354,8 @@ with tab1:
 
         # Create select boxes for category and visualization
         category = st.selectbox('Choose a Location', list(categories))
+
+# Mandir Marg Delhi Location
 
         if category == 'MM-Delhi':
             if os.path.exists('../real_data.csv'):
@@ -378,14 +402,14 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = rf_pipeline.predict(new_df)
+                rf_predictions_df = trained_stacking_classifier.predict(new_df)
 
                 st.subheader("Air Quality Index")
                 st.write(rf_predictions_df)
                 st.balloons()
 
 
-
+# Pusa- Delhi location
 
         elif category == 'Pusa-Delhi':
 
@@ -434,15 +458,15 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = rf_pipeline.predict(new_df)
+                st_predictions_df = trained_stacking_classifier.predict(new_df)
 
                 st.subheader("Air Quality Index")
-                st.write(rf_predictions_df)
+                st.write(st_predictions_df)
                 st.balloons()
 
 
 
-
+# Code or DCNS - Delhi location
         elif category == 'DCNS-Delhi':
             if os.path.exists('../real_data.csv'):
                 os.remove('../real_data.csv')
@@ -488,14 +512,14 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = rf_pipeline.predict(new_df)
+                st_predictions_df = trained_stacking_classifier.predict(new_df)
 
                 st.subheader("Air Quality Index")
-                st.write(rf_predictions_df)
+                st.write(st_predictions_df)
                 st.balloons()
 
 
-
+# Greater Noida location
         elif category == 'Greater-Noida':
             if os.path.exists('../real_data.csv'):
                 os.remove('../real_data.csv')
@@ -541,14 +565,14 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = rf_pipeline.predict(new_df)
+                st_predictions_df = trained_stacking_classifier.predict(new_df)
 
                 st.subheader("Air Quality Index")
-                st.write(rf_predictions_df)
+                st.write(st_predictions_df)
                 st.balloons()
 
 
-
+# RKP Delhi location
         elif category == 'RKP-Delhi':
             if os.path.exists('../real_data.csv'):
                 os.remove('../real_data.csv')
@@ -598,8 +622,8 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = rf_pipeline.predict(new_df)
-                st.write(rf_predictions_df)
+                st_predictions_df = trained_stacking_classifier.predict(new_df)
+                st.write(st_predictions_df)
                 st.balloons()
 
     # Air feature
@@ -993,7 +1017,7 @@ with tab3:
 
     st.markdown(" - Verify that the login is successful, and the user is redirected to the main application page.")
 
-    st.markdown(" **4. Real Time Monitoring Feature")
+    st.markdown(" **4. Real Time Monitoring Feature**")
 
     st.markdown(" - **Choosing a Location**")
 
@@ -1004,7 +1028,7 @@ with tab3:
     st.markdown(" - Click on the Air Quality Index button.")
 
     st.markdown(" Experience real-time updates on air quality conditions. The app continually fetches the latest data, "
-                "keeping you informed about the current atmospheric situation in your selected location..")
+                "keeping you informed about the current atmospheric situation in your selected location.")
 
     st.markdown("**Date Information**")
 
@@ -1039,7 +1063,7 @@ with tab3:
     st.markdown("Explore historical data to gain insights into past air quality records and trends. This feature allows"
                 " you to analyze patterns and fluctuations over time for a more comprehensive understanding.")
 
-    st.markdown("10. 503 Error**")
+    st.markdown("**10. 503 Error**")
 
     st.markdown("The 503 Service Unavailable error is an indication that the server is temporarily unable to handle "
                 "the request. While our Paavan Vayu application is designed to provide a seamless user experience, "
