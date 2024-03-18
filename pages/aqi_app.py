@@ -299,9 +299,9 @@ def categorize_aqi(overall_aqi):
     if overall_aqi <= 50:
         return "Good"
     elif 51 <= overall_aqi <= 100:
-        return "Moderate"
-    elif 101 <= overall_aqi <= 200:
         return "Satisfactory"
+    elif 101 <= overall_aqi <= 200:
+        return "Moderate"
     elif 201 <= overall_aqi <= 300:
         return "Poor"
     elif 301 <= overall_aqi <= 400:
@@ -515,7 +515,7 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
-            time_2 = st.time_input('Time', value="now")
+            #time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'Mandir Marg, Delhi')
 
@@ -528,7 +528,7 @@ with tab1:
                 df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
                 ac = df['AQI_Category'].iloc[0]
                 #st.subheader("Air Quality Index", ac)
-                #st.write(ac)
+                st.write("Air Quality Index : ",ac)
 
 
                 df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
@@ -554,7 +554,7 @@ with tab1:
                 #pred=rf_pipeline.predict(new_df)
                 #st.write(pred)
                 #st.write(rf_predictions_df)
-                st.write("Air Quality Index : ", st1_predictions_df)
+                #st.write("Air Quality Index : ", st1_predictions_df)
 
 
 # Pusa- Delhi location
@@ -584,7 +584,7 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
-            time_2 = st.time_input('Time', value="now")
+            #time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'Pusa, Delhi')
 
@@ -597,7 +597,7 @@ with tab1:
                 ac = df['AQI_Category'].iloc[0]
 
 
-                #st.write(ac)
+                st.write("Air Quality Index : ",ac)
 
                 df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
@@ -620,7 +620,7 @@ with tab1:
                 # predict
                 st2_predictions_df = trained_stacking_classifier.predict(new_df)
 
-                st.write("Air Quality Index : ", st2_predictions_df)
+                #st.write("Air Quality Index : ", st2_predictions_df)
                 #st.balloons()
 
 
@@ -648,7 +648,7 @@ with tab1:
             df = pd.read_csv('../real_data.csv')
 
             time_1 = st.date_input("Date", datetime.date.today())
-            time_2 = st.time_input('Time', value="now")
+            #time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'Major Dhyan Chand National Stadium, Delhi')
 
@@ -659,7 +659,7 @@ with tab1:
                 air_quality_widget(aq)
                 df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
                 ac = df['AQI_Category'].iloc[0]
-                #st.write(ac)
+                st.write("Air Quality Index : ", ac)
 
                 df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
@@ -682,7 +682,7 @@ with tab1:
                 # predict
                 st3_predictions_df = trained_stacking_classifier.predict(new_df)
 
-                st.write("Air Quality Index : ", st3_predictions_df)
+                #st.write("Air Quality Index : ", st3_predictions_df)
                 #st.write(st_predictions_df)
                 #st.balloons()
 
@@ -711,7 +711,7 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
-            time_2 = st.time_input('Time', value="now")
+            #time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'Knowledge Park- V, Greater Noida')
 
@@ -722,7 +722,7 @@ with tab1:
                 air_quality_widget(aq)
                 df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
                 ac = df['AQI_Category'].iloc[0]
-                #st.write(ac)
+                st.write("Air Quality Index : ", ac)
 
                 df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
@@ -744,7 +744,7 @@ with tab1:
                 new_df.columns = original_col
                 # predict
                 st4_predictions_df = trained_stacking_classifier.predict(new_df)
-                st.write("Air Quality Index : ", st4_predictions_df)
+                #st.write("Air Quality Index : ", st4_predictions_df)
 
                 #st.subheader("Air Quality Index")
                 #st.write(st_predictions_df)
@@ -775,7 +775,7 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
-            time_2 = st.time_input('Time', value="now")
+            #time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'R.K Puram, Delhi')
 
@@ -786,7 +786,7 @@ with tab1:
                 air_quality_widget(aq)
                 df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
                 ac = df['AQI_Category'].iloc[0]
-                #st.write(ac)
+                st.write("Air Quality Index : ", ac)
 
                 df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
@@ -808,7 +808,7 @@ with tab1:
                 new_df.columns = original_col
                 # predict
                 st5_predictions_df = trained_stacking_classifier.predict(new_df)
-                st.write("Air Quality Index : ", st5_predictions_df)
+                #st.write("Air Quality Index : ", st5_predictions_df)
                 #st.write(st_predictions_df)
                 #st.balloons()
 
