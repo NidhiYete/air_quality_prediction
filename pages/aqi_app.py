@@ -16,14 +16,16 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import StackingClassifier
 from imblearn.pipeline import make_pipeline
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.preprocessing import PowerTransformer, MinMaxScaler
+from sklearn.preprocessing import PowerTransformer, MinMaxScaler, RobustScaler
 from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTEENN
 from scipy.stats.mstats import winsorize
 from streamlit_supabase_auth import logout_button
 import pygwalker as pyg
 import streamlit.components.v1 as components
 import plotly.io as pio
+
 import plotly.graph_objects as go
 pio.templates.default = "plotly_white"
 import warnings
@@ -139,61 +141,188 @@ aq_df = aq_aqi.dropna()
 
 numeric_features = (['pm25', 'pm10', 'o3', 'no2', 'so2', 'co'])
 for col in numeric_features:
-    aq_df[col] = winsorize(aq_df[col], limits=[0.001, 0.001])
+    aq_df[col] = winsorize(aq_df[col], limits=[0.01, 0.01])
 
 
 # Define AQI breakpoints and corresponding AQI values
-aqi_breakpoints = [
-    (0, 12.0, 50), (12.1, 35.4, 100), (35.5, 55.4, 150),
-    (55.5, 150.4, 200), (150.5, 250.4, 300), (250.5, 350.4, 400)
-    ]
+# Breakpoints for pollutant AQI calculation
+pm10_breakpoints = {
+    'c_low': [0, 50, 101, 251, 351, 431, 501, 601],
+    'c_high': [50, 100, 250, 350, 430, 500, 600, 999.0],
+    'aqi_low': [0, 51, 101, 201, 301, 401, 501, 601],
+    'aqi_high': [50, 100, 200, 300, 400, 500, 600, 999]
+}
 
-def calculate_aqi(pollutant_name, concentration):
-    for low, high, aqi in aqi_breakpoints:
-        if low <= concentration <= high:
-            return aqi
-    return None
-
-def calculate_overall_aqi(row):
-    aqi_values = []
-    pollutants = ['pm25', 'pm10', 'o3', 'no2', 'so2', 'co']
-    for pollutant in pollutants:
-        aqi = calculate_aqi(pollutant, row[pollutant])
-        if aqi is not None:
-            aqi_values.append(aqi)
-    return max(aqi_values)
-
-# Calculate AQI for each row
-aq_df['AQI'] = aq_df.apply(calculate_overall_aqi, axis=1)
+# AQI calculation function for PM10
+def calculate_aqi_pm10(value):
+    for i in range(len(pm10_breakpoints['c_low'])):
+        if pm10_breakpoints['c_low'][i] <= value <= pm10_breakpoints['c_high'][i]:
+            c_low = pm10_breakpoints['c_low'][i]
+            c_high = pm10_breakpoints['c_high'][i]
+            aqi_low = pm10_breakpoints['aqi_low'][i]
+            aqi_high = pm10_breakpoints['aqi_high'][i]
+            break
 
 
-# Define AQI categories
-aqi_categories = [
-    (0, 50, 'Good'), (51, 100, 'Moderate'), (101, 150, 'Unhealthy for Sensitive Groups'),
-    (151, 200, 'Unhealthy'), (201, 300, 'Very Unhealthy'), (301, 500, 'Hazardous')
-]
+    aqi_pm10 = (aqi_high - aqi_low) / (c_high - c_low) * (value - c_low) + aqi_low
+    return int(round(aqi_pm10))
+
+# Create a new column 'aqi_pm10' and apply the AQI calculation function
+aq_df['aqi_pm10'] = aq_df['pm10'].apply(calculate_aqi_pm10)
+
+no2_breakpoints = {
+    'c_low_no2': [0, 41, 81, 181, 281, 401],
+    'c_high_no2': [40, 80, 180, 280, 400, 500],
+    'aqi_low_no2': [0, 51, 101, 201, 301, 401],
+    'aqi_high_no2': [50, 100, 200, 300, 400, 500]
+}
+
+# AQI calculation function for PM10
+def calculate_aqi_no2(value):
+    for i in range(len(no2_breakpoints['c_low_no2'])):
+        if no2_breakpoints['c_low_no2'][i] <= value <= no2_breakpoints['c_high_no2'][i]:
+            c_low_no2 = no2_breakpoints['c_low_no2'][i]
+            c_high_no2 = no2_breakpoints['c_high_no2'][i]
+            aqi_low_no2 = no2_breakpoints['aqi_low_no2'][i]
+            aqi_high_no2 = no2_breakpoints['aqi_high_no2'][i]
+            break
+
+    aqi_no2 = (aqi_high_no2 - aqi_low_no2) / (c_high_no2 - c_low_no2) * (value - c_low_no2) + aqi_low_no2
+    return int(round(aqi_no2))
+
+# Create a new column 'aqi_pm10' and apply the AQI calculation function
+aq_df['aqi_no2'] = aq_df['no2'].apply(calculate_aqi_no2)
+
+pm25_breakpoints = {
+    'c_low_pm25': [0, 31, 61, 91, 121, 251, 351],
+    'c_high_pm25': [30, 60, 90, 120, 250, 350, 500],
+    'aqi_low_pm25': [0, 51, 101, 201, 301, 401, 401],
+    'aqi_high_pm25': [50, 100, 200, 300, 400, 500, 500]
+}
+
+# AQI calculation function for PM10
+def calculate_aqi_pm25(value):
+    for i in range(len(pm25_breakpoints['c_low_pm25'])):
+        if pm25_breakpoints['c_low_pm25'][i] <= value <= pm25_breakpoints['c_high_pm25'][i]:
+            c_low_pm25 = pm25_breakpoints['c_low_pm25'][i]
+            c_high_pm25 = pm25_breakpoints['c_high_pm25'][i]
+            aqi_low_pm25 = pm25_breakpoints['aqi_low_pm25'][i]
+            aqi_high_pm25 = pm25_breakpoints['aqi_high_pm25'][i]
+            break
+
+    aqi_pm25 = (aqi_high_pm25 - aqi_low_pm25) / (c_high_pm25 - c_low_pm25) * (value - c_low_pm25) + aqi_low_pm25
+    return int(round(aqi_pm25))
 
 
-def categorize_aqi(aqi_value):
-    for low, high, category in aqi_categories:
-        if low <= aqi_value <= high:
-            return category
-    return None
+# Create a new column 'aqi_pm10' and apply the AQI calculation function
+aq_df['aqi_pm25'] = aq_df['pm25'].apply(calculate_aqi_pm25)
 
-# Categorize AQI
+# Breakpoints for O3 AQI calculation
+o3_breakpoints = {
+    'c_low': [0, 51, 101, 169, 209, 748, 1009, 1259],
+    'c_high': [50, 100, 168, 208, 748, 1008, 1258, 999.0],
+    'aqi_low': [0, 51, 101, 201, 301, 401, 501, 601],
+    'aqi_high': [50, 100, 200, 300, 400, 500, 600, 999]
+}
+
+# AQI calculation function for O3
+def calculate_aqi_o3(value):
+    for i in range(len(o3_breakpoints['c_low'])):
+        if o3_breakpoints['c_low'][i] <= value <= o3_breakpoints['c_high'][i]:
+            c_low = o3_breakpoints['c_low'][i]
+            c_high = o3_breakpoints['c_high'][i]
+            aqi_low = o3_breakpoints['aqi_low'][i]
+            aqi_high = o3_breakpoints['aqi_high'][i]
+            break
+
+    aqi_o3 = (aqi_high - aqi_low) / (c_high - c_low) * (value - c_low) + aqi_low
+    return int(round(aqi_o3))
+
+# Example usage:
+aq_df['aqi_o3'] = aq_df['o3'].apply(calculate_aqi_o3)
+
+# Breakpoints for SO2 AQI calculation (Indian Standards)
+so2_breakpoints = {
+    'c_low': [0, 41, 81, 381, 801, 1601],
+    'c_high': [40, 80, 380, 800, 1600, 2000],
+    'aqi_low': [0, 51, 101, 201, 301, 401],
+    'aqi_high': [50, 100, 200, 300, 400, 500]
+}
+
+# AQI calculation function for SO2 (Indian Standards)
+def calculate_aqi_so2(value):
+    for i in range(len(so2_breakpoints['c_low'])):
+        if so2_breakpoints['c_low'][i] <= value <= so2_breakpoints['c_high'][i]:
+            c_low = so2_breakpoints['c_low'][i]
+            c_high = so2_breakpoints['c_high'][i]
+            aqi_low = so2_breakpoints['aqi_low'][i]
+            aqi_high = so2_breakpoints['aqi_high'][i]
+            break
+
+    aqi_so2 = (aqi_high - aqi_low) / (c_high - c_low) * (value - c_low) + aqi_low
+    return int(round(aqi_so2))
+
+# Example usage:
+aq_df['aqi_so2'] = aq_df['so2'].apply(calculate_aqi_so2)
+
+# Breakpoints for CO AQI calculation
+co_breakpoints = {
+    'c_low_co': [0, 1.1, 2.1, 10, 17, 34],
+    'c_high_co': [1.0, 2.0, 10, 17, 34, 68],
+    'aqi_low_co': [0, 51, 101, 201, 301, 401],
+    'aqi_high_co': [50, 100, 200, 300, 400, 500]
+}
+
+# AQI calculation function for CO
+def calculate_aqi_co(value):
+    for i in range(len(co_breakpoints['c_low_co'])):
+        if co_breakpoints['c_low_co'][i] <= value <= co_breakpoints['c_high_co'][i]:
+            c_low_co = co_breakpoints['c_low_co'][i]
+            c_high_co = co_breakpoints['c_high_co'][i]
+            aqi_low_co = co_breakpoints['aqi_low_co'][i]
+            aqi_high_co = co_breakpoints['aqi_high_co'][i]
+            break
+
+    aqi_co = (aqi_high_co - aqi_low_co) / (c_high_co - c_low_co) * (value - c_low_co) + aqi_low_co
+    return int(round(aqi_co))
+
+# Example usage:
+aq_df['aqi_co'] = aq_df['co'].apply(calculate_aqi_co)
+
+
+poll = ['pm10', 'pm25', 'no2', 'o3', 'co', 'so2']
+# Create a new column 'max_aqi' to store the overall maximum AQI for each row
+aq_df['AQI'] = aq_df[[f'aqi_{pollutant}' for pollutant in poll]].max(axis=1)
+
+# Categorize the overall AQI into a new column 'AQI_category'
+def categorize_aqi(overall_aqi):
+    if overall_aqi <= 50:
+        return "Good"
+    elif 51 <= overall_aqi <= 100:
+        return "Moderate"
+    elif 101 <= overall_aqi <= 200:
+        return "Satisfactory"
+    elif 201 <= overall_aqi <= 300:
+        return "Poor"
+    elif 301 <= overall_aqi <= 400:
+        return "Very Poor"
+    elif overall_aqi >= 401:
+        return "Severe"
+
+# Apply the categorization function to create the 'AQI_category' column
 aq_df['AQI_Category'] = aq_df['AQI'].apply(categorize_aqi)
 
 air_new = aq_df.copy()
 
 #st.write(air_new)
 # drop columns
-air_new.drop(['city', 'year', 'date', 'pm10', 'AQI', 'latitude', 'longitude'], inplace=True, axis=1)
-
+air_new.drop(['city', 'year', 'date', 'pm10', 'AQI', 'latitude', 'longitude', 'aqi_co',
+              'aqi_o3', 'aqi_no2', 'aqi_so2', 'aqi_pm25', 'aqi_pm10'], inplace=True, axis=1)
 
 # creating instances
 ode = OrdinalEncoder()
 scaler = MinMaxScaler()
-#scaler = PowerTransformer(method='box-cox', standardize=False)
+#scaler = PowerTransformer(method='yeo-johnson')
 
 # column transformer
 ct = make_column_transformer(
@@ -225,7 +354,9 @@ y = air_new['AQI_Category']
 # Split the data into training and testing sets (e.g., 80% training, 20% testing)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
 
-
+rf_model = RandomForestClassifier()
+rf_pipeline = make_pipeline(SMOTE(), rf_model)
+rf_pipeline.fit(X_train, y_train)
 
 # Function to train Stacking Classifier ensemble and return the trained model object.
 @st.cache_resource
@@ -238,11 +369,11 @@ def train_stacking_classifier(X_train, y_train):
     mlp_model = MLPClassifier(hidden_layer_sizes=(100,), max_iter=1000, random_state=123)
 
     # Create pipelines with Random Oversampling
-    rf_pipeline = make_pipeline(SMOTE(), rf_model)
-    svm_pipeline = make_pipeline(SMOTE(), svm_model)
-    nb_pipeline = make_pipeline(SMOTE(), nb_model)
-    knn_pipeline = make_pipeline(SMOTE(), knn_model)
-    mlp_pipeline = make_pipeline(SMOTE(), mlp_model)
+    rf_pipeline = make_pipeline(SMOTEENN(), rf_model)
+    svm_pipeline = make_pipeline(SMOTEENN(), svm_model)
+    nb_pipeline = make_pipeline(SMOTEENN(), nb_model)
+    knn_pipeline = make_pipeline(SMOTEENN(), knn_model)
+    mlp_pipeline = make_pipeline(SMOTEENN(), mlp_model)
 
     # Create a stacking classifier with base and meta classifiers
     model_st = StackingClassifier(
@@ -263,6 +394,8 @@ def train_stacking_classifier(X_train, y_train):
 
 # Outside the function, call the function to get the trained model
 trained_stacking_classifier = train_stacking_classifier(X_train, y_train)
+
+
 
 # real time data extraction
 def extract_data(json_response):
@@ -307,7 +440,7 @@ def create_csv_file(data, file_path):
 #  air quality widget
 def air_quality_widget(aqi_value):
     # Define AQI categories and colors
-    aqi_categories = ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous']
+    aqi_categories = ['Good', 'Satisfactory', 'Moderate', 'Poor', 'Very Poor', 'Severe']
     colors = ['green', 'yellow', 'orange', 'red', 'purple', 'maroon']
 
     # Determine AQI category index
@@ -325,13 +458,15 @@ def air_quality_widget(aqi_value):
             'steps': [
                 {'range': [0, 50], 'color': colors[0]},
                 {'range': [51, 100], 'color': colors[1]},
-                {'range': [101, 150], 'color': colors[2]},
-                {'range': [151, 200], 'color': colors[3]},
-                {'range': [201, 300], 'color': colors[4]},
-                {'range': [301, 500], 'color': colors[5]},
+                {'range': [101, 200], 'color': colors[2]},
+                {'range': [201, 300], 'color': colors[3]},
+                {'range': [301, 400], 'color': colors[4]},
+                {'range': [401, 500], 'color': colors[5]},
             ],
         }
     ))
+    # Adjust layout properties to reduce size and prevent overlapping
+    fig.update_layout(width=400, height=400)  # Adjust width, height, and margins
 
     # Display the gauge chart
     st.plotly_chart(fig)
@@ -380,10 +515,23 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
+            time_2 = st.time_input('Time', value="now")
+
             location_name = st.text_input('Location name', 'Mandir Marg, Delhi')
 
+
             if st.button(":red[Calculate Air Quality Index]"):
-                df.drop(['pm10', 'AQI', 'date', 'city'], inplace=True, axis=1)
+                df.drop(['date', 'city'], inplace=True, axis=1)
+                st.write(df)
+                aq = df['AQI'].iloc[0]
+                air_quality_widget(aq)
+                df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
+                ac = df['AQI_Category'].iloc[0]
+                #st.subheader("Air Quality Index", ac)
+                #st.write(ac)
+
+
+                df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
                 # column transformer
                 ct = make_column_transformer(
@@ -402,11 +550,11 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                rf_predictions_df = trained_stacking_classifier.predict(new_df)
-
-                st.subheader("Air Quality Index")
-                st.write(rf_predictions_df)
-                st.balloons()
+                st1_predictions_df = trained_stacking_classifier.predict(new_df)
+                #pred=rf_pipeline.predict(new_df)
+                #st.write(pred)
+                #st.write(rf_predictions_df)
+                st.write("Air Quality Index : ", st1_predictions_df)
 
 
 # Pusa- Delhi location
@@ -436,10 +584,22 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
+            time_2 = st.time_input('Time', value="now")
+
             location_name = st.text_input('Location name', 'Pusa, Delhi')
 
             if st.button(":red[Calculate Air Quality Index]"):
-                df.drop(['pm10', 'AQI', 'date', 'city'], inplace=True, axis=1)
+                df.drop(['date', 'city'], inplace=True, axis=1)
+                st.write(df)
+                aq = df['AQI'].iloc[0]
+                air_quality_widget(aq)
+                df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
+                ac = df['AQI_Category'].iloc[0]
+
+
+                #st.write(ac)
+
+                df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
                 # column transformer
                 ct = make_column_transformer(
@@ -458,11 +618,10 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                st_predictions_df = trained_stacking_classifier.predict(new_df)
+                st2_predictions_df = trained_stacking_classifier.predict(new_df)
 
-                st.subheader("Air Quality Index")
-                st.write(st_predictions_df)
-                st.balloons()
+                st.write("Air Quality Index : ", st2_predictions_df)
+                #st.balloons()
 
 
 
@@ -489,11 +648,20 @@ with tab1:
             df = pd.read_csv('../real_data.csv')
 
             time_1 = st.date_input("Date", datetime.date.today())
+            time_2 = st.time_input('Time', value="now")
 
             location_name = st.text_input('Location name', 'Major Dhyan Chand National Stadium, Delhi')
 
             if st.button(":red[Calculate Air Quality Index]"):
-                df.drop(['pm10', 'AQI', 'date', 'city'], inplace=True, axis=1)
+                df.drop(['date', 'city'], inplace=True, axis=1)
+                st.write(df)
+                aq = df['AQI'].iloc[0]
+                air_quality_widget(aq)
+                df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
+                ac = df['AQI_Category'].iloc[0]
+                #st.write(ac)
+
+                df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
                 # column transformer
                 ct = make_column_transformer(
@@ -512,11 +680,11 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                st_predictions_df = trained_stacking_classifier.predict(new_df)
+                st3_predictions_df = trained_stacking_classifier.predict(new_df)
 
-                st.subheader("Air Quality Index")
-                st.write(st_predictions_df)
-                st.balloons()
+                st.write("Air Quality Index : ", st3_predictions_df)
+                #st.write(st_predictions_df)
+                #st.balloons()
 
 
 # Greater Noida location
@@ -543,10 +711,20 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
+            time_2 = st.time_input('Time', value="now")
+
             location_name = st.text_input('Location name', 'Knowledge Park- V, Greater Noida')
 
             if st.button(":red[Calculate Air Quality Index]"):
-                df.drop(['pm10', 'AQI', 'date', 'city'], inplace=True, axis=1)
+                df.drop(['date', 'city'], inplace=True, axis=1)
+                st.write(df)
+                aq = df['AQI'].iloc[0]
+                air_quality_widget(aq)
+                df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
+                ac = df['AQI_Category'].iloc[0]
+                #st.write(ac)
+
+                df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
                 # column transformer
                 ct = make_column_transformer(
@@ -565,11 +743,12 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                st_predictions_df = trained_stacking_classifier.predict(new_df)
+                st4_predictions_df = trained_stacking_classifier.predict(new_df)
+                st.write("Air Quality Index : ", st4_predictions_df)
 
-                st.subheader("Air Quality Index")
-                st.write(st_predictions_df)
-                st.balloons()
+                #st.subheader("Air Quality Index")
+                #st.write(st_predictions_df)
+                #st.balloons()
 
 
 # RKP Delhi location
@@ -596,14 +775,20 @@ with tab1:
 
             time_1 = st.date_input("Date", datetime.date.today())
 
+            time_2 = st.time_input('Time', value="now")
+
             location_name = st.text_input('Location name', 'R.K Puram, Delhi')
 
             if st.button(":red[Calculate Air Quality Index]"):
-                st.subheader("Air Quality Index")
-                # sample_aqi = df['AQI'].iloc[0]
-                # air_quality_widget(sample_aqi)
+                df.drop(['date', 'city'], inplace=True, axis=1)
+                st.write(df)
+                aq = df['AQI'].iloc[0]
+                air_quality_widget(aq)
+                df['AQI_Category'] = df['AQI'].apply(categorize_aqi)
+                ac = df['AQI_Category'].iloc[0]
+                #st.write(ac)
 
-                df.drop(['pm10', 'AQI', 'date', 'city'], inplace=True, axis=1)
+                df.drop(['pm10', 'AQI', 'AQI_Category'], inplace=True, axis=1)
 
                 # column transformer
                 ct = make_column_transformer(
@@ -622,9 +807,10 @@ with tab1:
                 # Rename the columns in the resulting DataFrame
                 new_df.columns = original_col
                 # predict
-                st_predictions_df = trained_stacking_classifier.predict(new_df)
-                st.write(st_predictions_df)
-                st.balloons()
+                st5_predictions_df = trained_stacking_classifier.predict(new_df)
+                st.write("Air Quality Index : ", st5_predictions_df)
+                #st.write(st_predictions_df)
+                #st.balloons()
 
     # Air feature
     with col2:
@@ -634,7 +820,7 @@ with tab1:
 
         with tab5:
             st.subheader("Air Quality Index (AQI)")
-            img_url1 = 'https://www.sparetheair.com/assets/aqi/AQI%20Chart%20PM_FINAL.png'
+            img_url1 = 'https://w.ndtvimg.com/sites/3/2019/12/18122812/air_pollution_standards_cpcb.png'
             st.image(img_url1, use_column_width=True)
 
             st.markdown(
@@ -657,21 +843,21 @@ with tab1:
                 "different level of health concern. These categories often include:")
 
             st.markdown(
-                " - **0-50:** Good (Air quality is considered satisfactory, and air pollution poses little or no risk.")
+                " - **0-50:** Good (Air quality is considered satisfactory, and air pollution poses little or no risk.)"
+                "")
             st.markdown(
-                " - **51-100:** Moderate (Air quality is acceptable; however, some pollutants may be a concern for a "
-                "very small number of people with certain sensitivities.")
+                " - **51-100:** Satisfactory(Low health risks, but vulnerable groups may experience minor issues.)")
             st.markdown(
-                " - **101-150:** Unhealthy for sensitive groups (Members of sensitive groups may experience health "
-                "effects. The general public is less likely to be affected.)")
+                " - **101-200:** Moderate(Adverse effects possible for sensitive individuals, especially those with "
+                "respiratory or cardiovascular conditions.)")
             st.markdown(
-                " - **151-200:** Unhealthy (Everyone may begin to experience health effects, and members of sensitive"
-                " groups may experience more serious health effects.)")
+                " - **201-300:** Poor (Increased health risks, particularly for vulnerable groups such as "
+                "children, the elderly, and those with existing health conditions.)")
             st.markdown(
-                " - **201-300:** Very unhealthy (Health alert: everyone may experience more serious health effects.)")
+                " - **301-400:** Very Poor (Health alert: everyone may experience more serious health effects.)")
 
             st.markdown(
-                " - **301-500:** Hazardous (Health warnings of emergency conditions; the entire population is likely"
+                " - **401-500:** Severe (Health warnings of emergency conditions; the entire population is likely"
                 " to be affected.)")
 
             st.markdown(
@@ -870,13 +1056,13 @@ with tab1:
 
     # Safety Advise section
     with col3:
-        st.subheader("Safety Advise")
+        st.subheader("Safety Recommendations")
 
-        tab11, tab12 = st.tabs(["Health Safety Advise", "Environment Safety Advise"])
+        tab11, tab12 = st.tabs(["Health Safety Recommendations", "Environment Safety Recommendations"])
 
         # Health Safety Advise section
         with tab11:
-            st.subheader("Health Safety Advise")
+            st.subheader("Health Safety Recommendations")
             img_url7 = "https://publichealthcollaborative.org/wp-content/uploads/2023/08/PHCC_8-Ways-to-Stay-Safe_Rectangle-Social-Graphic_ENG-1024x576.png.webp"
             st.image(img_url7, use_column_width=True)
 
@@ -920,8 +1106,8 @@ with tab1:
 
         # Environment Safety Advise section
         with tab12:
-            st.subheader("Environment Safety Advise")
-            img_url8 = "https://scontent-atl3-1.xx.fbcdn.net/v/t39.30808-6/258787310_10159453519482367_3939780936894224058_n.jpg?_nc_cat=107&ccb=1-7&_nc_sid=230a55&_nc_ohc=CINk7XOx8GsAX_0NgJG&_nc_ht=scontent-atl3-1.xx&oh=00_AfD48uhiXOwD1pavbCbjQ52lipOd73XPqsOXTS_5TLSMRQ&oe=65E0D072"
+            st.subheader("Environment Safety Recommendations")
+            img_url8 = "https://www.unicef.org/vietnam/sites/unicef.org.vietnam/files/Poster%205_Solution%20for%20Air%20Pollution-01.jpg"
             st.image(img_url8, use_column_width=True)
 
             st.markdown("**1. Reduce Vehicle Emissions:** Choose public transportation, carpooling, biking, or walking "
@@ -1043,11 +1229,11 @@ with tab3:
                 "communicate the current or forecasted level of air pollution, incorporating key pollutants such as "
                 "ozone, particulate matter, carbon monoxide, sulfur dioxide, and nitrogen dioxide.")
 
-    st.markdown("**6. Safety Advise**")
+    st.markdown("**6. Safety Recommendations**")
 
-    st.markdown("Access Health Safety Advise and Environment Safety Advise to understand recommended actions during "
-                "varying air quality conditions. The app provides tips on staying informed, limiting outdoor activities,"
-                " avoiding high-pollution areas, and using air purifiers.")
+    st.markdown("Access Health Safety Recommendations and Environment Safety Recommendations to understand recommended "
+                "actions during varying air quality conditions. The app provides tips on staying informed, limiting "
+                "outdoor activities, avoiding high-pollution areas, and using air purifiers.")
 
     st.markdown("**7. FAQs (Frequently Asked Questions)**")
     st.markdown("Check the FAQs section for answers to common queries. If you have questions about the AQI, data "
@@ -1147,9 +1333,9 @@ with tab4:
                 "activities or using air purifiers, when air quality is poor.")
 
     st.markdown("- **What safety advice is provided for health and the environment?**")
-    st.markdown("The Paavan Vayu app offers Health Safety Advise, including tips such as staying informed, limiting "
+    st.markdown("The Paavan Vayu app offers Health Safety Recommendations, including tips such as staying informed, limiting "
                 "outdoor activities during poor air quality, avoiding high-pollution areas, and using air purifiers. "
-                "Environment Safety Advise is also available, promoting responsible practices for environmental "
+                "Environment Safety Recommendations is also available, promoting responsible practices for environmental "
                 "conservation.")
 
 # submit feedback section
