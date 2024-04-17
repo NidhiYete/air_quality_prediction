@@ -355,7 +355,7 @@ y = air_new['AQI_Category']
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
 
 rf_model = RandomForestClassifier()
-rf_pipeline = make_pipeline(SMOTE(), rf_model)
+rf_pipeline = make_pipeline(SMOTEENN(), rf_model)
 rf_pipeline.fit(X_train, y_train)
 
 # Function to train Stacking Classifier ensemble and return the trained model object.
@@ -485,7 +485,7 @@ with tab1:
         image_url = 'https://www.epa.gov/sites/default/files/styles/large/public/2021-05/aqaw_2021_0.png?itok=FwknteTh'
         st.image(image_url, use_column_width=True)
 
-        categories = ('MM-Delhi', 'RKP-Delhi', 'Pusa-Delhi', 'DCNS-Delhi', 'Greater-Noida')
+        categories = ('MM-Delhi', 'RKP-Delhi', 'Pusa-Delhi', 'DCNS-Delhi', 'AV-Delhi')
 
         # Create select boxes for category and visualization
         category = st.selectbox('Choose a Location', list(categories))
@@ -688,12 +688,12 @@ with tab1:
 
 
 # Greater Noida location
-        elif category == 'Greater-Noida':
+        elif category == 'AV-Delhi':
             if os.path.exists('../real_data.csv'):
                 os.remove('../real_data.csv')
                 print(f"Deleted existing CSV file: {'real_data.csv'}")
 
-            url = f"https://api.waqi.info/feed/@12463/?token={api_key}"
+            url = f"https://api.waqi.info/feed/@2553/?token={api_key}"
 
             headers = {
                 "accept": "application/json",
@@ -713,7 +713,7 @@ with tab1:
 
             #time_2 = st.time_input('Time', value="now")
 
-            location_name = st.text_input('Location name', 'Knowledge Park- V, Greater Noida')
+            location_name = st.text_input('Location name', 'Anand Vihar, Delhi')
 
             if st.button(":red[Calculate Air Quality Index]"):
                 df.drop(['date', 'city'], inplace=True, axis=1)
@@ -1054,7 +1054,7 @@ with tab1:
             st.markdown("- It may lead to symptoms such as coughing, throat irritation, and difficulty breathing.")
 
 
-    # Safety Advise section
+    # Safety Recommendation section
     with col3:
         st.subheader("Safety Recommendations")
 
@@ -1104,7 +1104,7 @@ with tab1:
                 "air pollution at the community and policy levels. Participate in activities that promote "
                 "sustainable practices and cleaner air.")
 
-        # Environment Safety Advise section
+        # Environment Safety Recommendation section
         with tab12:
             st.subheader("Environment Safety Recommendations")
             img_url8 = "https://www.unicef.org/vietnam/sites/unicef.org.vietnam/files/Poster%205_Solution%20for%20Air%20Pollution-01.jpg"
