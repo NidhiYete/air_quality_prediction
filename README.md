@@ -37,14 +37,15 @@
 - Provision of post-launch support to address issues and ensure ongoing reliability.
 
 ## Accessing Paavan Vayu Web Application
-- Open a web browser and enter the URL provided for Paavan Vayu.
+- Open a web browser and enter the URL ( https://paavan-vayu.streamlit.app) provided for Paavan Vayu.
 
 #### Sign Up or Log In
 
 - Upon accessing the web application, users will be prompted to sign up for a new account or log in if they already have one.
+- Users can also Sign In using their GitHub or Google account.
 
 #### Explore Air Quality Data:
 
 - Once logged in, users can immediately start exploring real-time air quality data for their desired location. They can select a specific location from the provided options and view pollutant levels, 
-- Information regarding Air Quality Index (AQI), major air pollutants, and safety information.
+- Information regarding Air Quality Index (AQI), major air pollutants, and safety recommendation information.
 - Check the Visualization, Help, FAQs sections to gain insights.
