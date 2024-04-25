@@ -401,10 +401,13 @@ trained_stacking_classifier = train_stacking_classifier(X_train, y_train)
 def extract_data(json_response):
     # Load the JSON response
     response_dict = json.loads(json_response)
+    #print(response_dict)
+
 
     # Extract specific fields
     iaqi_keys = ["co", "so2", "pm25", "no2", "pm10", "o3"]
     iaqi_data = {key: response_dict['data']['iaqi'][key]['v'] for key in iaqi_keys}
+    #print(iaqi_data)
     city_geo_location = response_dict['data']['city']['geo']
     time_s_field = response_dict['data']['time']['s']
     aqi_data = response_dict['data']['aqi']
