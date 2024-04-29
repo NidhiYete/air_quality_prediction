@@ -49,3 +49,6 @@
 - Once logged in, users can immediately start exploring real-time air quality data for their desired location. They can select a specific location from the provided options and view pollutant levels, 
 - Information regarding Air Quality Index (AQI), major air pollutants, and safety recommendation information.
 - Check the Visualization, Help, FAQs sections to gain insights.
+
+## Presentation Video
+- Presentation Link: https://youtu.be/T-ftEVR7itc
